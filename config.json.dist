@@ -1,0 +1,12 @@
+{
+    "testnet": true,
+    "network_mainnet": "https://rest.bitcoin.com/v2/",
+    "network_testnet": "https://trest.bitcoin.com/v2/",
+    "ws_mainnet": "wss://ws.bitcoin.com",
+    "ws_testnet": "wss://tws.bitcoin.com",
+    "tokenAddress": "e3cb905d9993f48c4763ce26810987214bf5413bdc963161e01b7d64b9161f1c",
+    "language": "en",
+    "telegramToken": "",
+    "wordListLanguage": "english",
+    "defaultTipAmmount": 100
+}

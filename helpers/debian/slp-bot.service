@@ -1,0 +1,23 @@
+#
+# Debain Systemd Service
+# - Set your username below
+# - Set the path to index.js
+# - copy this file to /etc/systemd/system/slp-bot.service
+# - start service: systemctl start slp-bot
+# - autostart on boot: systemctl enable slp-bot
+# - logs are written to /var/log/syslog
+#
+[Unit]
+Description=SLP Bot
+After=network.target
+StartLimitIntervalSec=10
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=myuser
+ExecStart=/usr/bin/env node /path/to/index.js
+StartLimitBurst=5
+
+[Install]
+WantedBy=multi-user.target
