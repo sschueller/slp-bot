@@ -156,13 +156,19 @@ token.getTokenInfo().then(function (tokenInfo) {
           return database.getFundingAddresses();
         }).then(function (fundingAddresses) {
           newBalance = token.substractFromBalance(currentBalance, amount);
+          fundingAddresses.push({
+            id: 0,
+            deposit_addr: token.getPrimaryFundingAddress()
+          });
           return token.findFundsForTx(fundingAddresses, amount);
         }).then(function (txos) {
           if (txos.length === 0) {
-            throw 'not_enough_funds_error';
+            console.error('No txos or all txos unconfirmed');
+            throw 'not_enough_txos';
           }
           return token.withdraw(address, amount, txos);
         }).then(function (transactionId) {
+          console.info('transactionId', transactionId);
           if (transactionId) {
             // update db
             database.setBalanceForUserId(msg.from.id, newBalance);
@@ -173,12 +179,13 @@ token.getTokenInfo().then(function (tokenInfo) {
             }), {});
           }
         }).catch(function (message) {
-          console.log('error', message);
-          if (message) {
-            bot.sendMessage(msg.chat.id, __(message, {
-              sendTxid: transactionId
-            }), {});
+          console.error('Withdraw error', message);
+          let responseMessage = __(message, { sendTxid: transactionId });
+          if (!responseMessage) {
+            responseMessage = "Unable to send funds at this time. Please try again later."
           }
+          bot.sendMessage(msg.chat.id, responseMessage);
+
         });
     }
   });
@@ -189,12 +196,28 @@ token.getTokenInfo().then(function (tokenInfo) {
     // if message is a reply
     if (msg.reply_to_message) {
 
-      // tip amount
-      let regex = /tip\s+([0-9]+[\.0-9]*)/i;
-      let match = regex.exec(msg.text);
+      let amount = 0;
 
+      // tip amount
+      let regex = new RegExp(config.tip_keyword,'i');
+      let match = regex.exec(msg.text);
       if (match) {
-        let amount = match[1];
+        amount = match[1];
+      }
+
+      config.tip_emojis.forEach(function (item) {
+        const count = (str) => {
+          let regex = new RegExp(item.icon, 'g');
+          return ((str || '').match(regex) || []).length
+        }
+
+        let occurance = count(msg.text);
+        if (occurance > 0) {
+          amount += (item.value * occurance);
+        }
+      });
+
+      if (amount > 0) {
 
         // meta data
         let chatId = msg.chat.id;

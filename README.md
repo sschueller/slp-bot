@@ -6,7 +6,6 @@ This bot was written in a few hours. There are no tests and it has not been cert
 Also note this project is written in Javascript using npm packages which should be consider insecure.
 
 ### TODO:
-- Withdraw doesn't work (Script failed an OP_EQUALVERIFY operation)
 - test tokens with decimal places
 - Add tests
 - Cleanup code

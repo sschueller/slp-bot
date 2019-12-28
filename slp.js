@@ -4,7 +4,7 @@ const BigNumber = require('bignumber.js');
 const SLPSDK = require("slp-sdk");
 const fs = require("fs");
 const forEach = require('async-foreach').forEach;
-
+const nodemailer = require('nodemailer');
 
 const config = require(__dirname + '/config.json');
 const walletFile = __dirname + '/wallet.json';
@@ -24,7 +24,13 @@ const slpjs = SLP.slpjs;
 const bitbox = SLP;
 const bitboxNetwork = new slpjs.BitboxNetwork(SLP);
 
+const transporter = nodemailer.createTransport(config.email.config);
+
 var token = {
+
+    getPrimaryFundingAddress: function () {
+        return slpjs.Utils.toSlpAddress(wallet.cashAddress);
+    },
 
     addToBalance: function (balance, addAmount) {
         return (new BigNumber(balance)).plus((new BigNumber(addAmount))).toPrecision();
@@ -53,90 +59,129 @@ var token = {
         });
     },
 
+    getWifForAddress: function (derivePathInteger, address) {
+        return new Promise(function (resolve, reject) {
+            let WIF = '';
+            let seedBuffer = bitbox.Mnemonic.toSeed(wallet.mnemonic);
+            const masterHDNode = bitbox.HDNode.fromSeed(seedBuffer);
+            const bchAccount = masterHDNode.derivePath(`m/44'/145'/0'/0/${derivePathInteger}`)
+
+            if (slpjs.Utils.toSlpAddress(bitbox.HDNode.toCashAddress(bchAccount)) === address) {
+                WIF = bitbox.HDNode.toWIF(bchAccount);
+                // console.log('WIF', WIF);
+            }
+            if (WIF) {
+                resolve(WIF);
+            } else {
+                reject();
+            }
+        });
+    },
+
     getBalance: function (address) {
         return bitboxNetwork.getAllSlpBalancesAndUtxos(address || wallet.cashAddress);
     },
 
-    findFundsForTx: function (addresses, requiredAmount) {
+    findFundsForTx: function (fundingAddresses, requiredAmount) {
         return new Promise(function (resolve, reject) {
 
-            let txos = [];
+            let inputUtxos = [];
             let have = 0;
 
-            forEach(addresses, function (address, index, arr) {
-                let done = this.async();
-                // console.info('have: ', have);
-                // console.info('requiredAmount: ', requiredAmount);
-                // console.info('checking balance of address: ', address);
-                if (have >= requiredAmount) {
-                    done(false);
-                }
-                token.getBalance(address.deposit_addr).then(function (balances) {
-                    if (balances.slpTokenBalances[config.tokenAddress] !== undefined) {
-                        // token
-                        let inputUtxos = balances.slpTokenUtxos[config.tokenAddress];
-                        
-                        // add bch
-                        inputUtxos = inputUtxos.concat(balances.nonSlpUtxos);
+            (async () => {
+                await asyncForEach(fundingAddresses, async (address) => {
+                    if (have < requiredAmount) {
+                        await token.getBalance(address.deposit_addr).then(function (balances) {
 
-                        txos = txos.concat(inputUtxos);
-                        have = token.addToBalance(have, balances.slpTokenBalances[config.tokenAddress]);
+                            if (balances.slpTokenBalances[config.tokenAddress] !== undefined) {
+                                // get WIF                                                
+                                token.getWifForAddress(address.id, address.deposit_addr).then(function (WIF) {
+                                    balances.slpTokenUtxos[config.tokenAddress].forEach(txo => txo.wif = WIF);
+                                    inputUtxos = inputUtxos.concat(balances.slpTokenUtxos[config.tokenAddress]);
+
+                                    // Added BCH for funding
+                                    balances.nonSlpUtxos.forEach(txo => txo.wif = WIF);
+                                    inputUtxos = inputUtxos.concat(balances.nonSlpUtxos);
+
+                                    have = token.addToBalance(have, balances.slpTokenBalances[config.tokenAddress]);
+                                }).catch(function (error) {
+                                    reject(error);
+                                });
+                            }
+                        }).catch(function (error) {
+                            console.log(error)
+                            // do nothing, we ignore txos which we can't use. e.g. 0 conf
+                        });
                     }
-                    done();
-                })
 
-            }, function (notAborted, arr) {
-                resolve(txos);
-            });
-
+                });
+                resolve(inputUtxos);
+            })();
         });
 
     },
 
     // Assumes user is permitted to retrieve amount
-    withdraw: function (slpOutAddress, amount, txos) {
+    withdraw: function (tokenReceiverAddresses, amount, inputUtxos) {
+        return new Promise(function (resolve, reject) {
 
-        (async function () {
-
-            let tokenInfo = await token.getTokenInfo();
-            let sendAmounts = [amount];
-            let bchChangeReceiverAddress = slpjs.Utils.toSlpAddress(wallet.cashAddress);
-
-            sendAmounts = sendAmounts.map(a => (new BigNumber(a)).times(10 ** tokenInfo.decimals));
-
-            // console.info('tokenAddress', config.tokenAddress);
-            // console.info('sendAmounts', sendAmounts);
-            // console.info('txos', txos);
-            // console.info('slpOutAddress', slpOutAddress);
-            // console.info('bchChangeReceiverAddress', bchChangeReceiverAddress);
-
-            // Set the proper private key for each Utxo
-            txos.forEach(txo => txo.wif = wallet.WIF);
-
-            // Send token
-            let sendTxid;
             (async function () {
-             
-                sendTxid = await bitboxNetwork.simpleTokenSend(
-                    config.tokenAddress, // tokenId
-                    sendAmounts,
-                    txos,
-                    slpOutAddress, // tokenReceiverAddress
-                    bchChangeReceiverAddress // bchChangeReceiverAddress
-                ).catch(function (error) {
-                    console.info('error', error);
-                })
 
-                if (sendTxid) {
-                    console.info("SEND txn complete:", sendTxid);
-                    return sendTxid;
-                } else {
-                    console.info("txn failed: ", slpOutAddress, amount);
-                    return false;
-                }
+                let tokenInfo = await token.getTokenInfo();
+                let sendAmounts = [amount];
+                let bchChangeReceiverAddress = slpjs.Utils.toSlpAddress(wallet.cashAddress);
+
+                sendAmounts = sendAmounts.map(a => (new BigNumber(a)).times(10 ** tokenInfo.decimals));
+
+                // console.info('tokenAddress', config.tokenAddress);
+                // console.info('sendAmounts', sendAmounts);
+                // console.info('inputUtxos', inputUtxos);
+                // console.info('tokenReceiverAddresses', tokenReceiverAddresses);
+                // console.info('bchChangeReceiverAddress', bchChangeReceiverAddress);
+
+                let extraFee = (8) * inputUtxos.length;
+
+                // Send token
+                let sendTxid;
+                (async function () {
+
+                    sendTxid = await bitboxNetwork.simpleTokenSend(
+                        config.tokenAddress, // tokenId
+                        sendAmounts,
+                        inputUtxos,
+                        tokenReceiverAddresses,
+                        bchChangeReceiverAddress,
+                        [], // requiredNonTokenOutputs
+                        extraFee
+                    ).catch(function (error) {
+                        if (error.toString().includes("input BCH amount is too low.")) {
+                            // send email on low funds to owner
+                            // transporter.sendMail({
+                            //     from: config.email,
+                            //     to: config.email,
+                            //     subject: 'SLP-Bot is out of funds',
+                            //     text: 'Please deposit some BCH to: ' + wallet.cashAddress + " in order for users to make SLP withdrawls."
+                            // }, function (error, info) {
+                            //     if (error) {
+                            //         console.info(error);
+                            //     } else {
+                            //         console.info('Email sent: ' + info.response);
+                            //     }
+                            // });
+                        }
+                        console.info('error', error);
+                    })
+
+                    if (sendTxid) {
+                        console.info("SEND txn complete:", sendTxid);
+                        resolve(sendTxid);
+                    } else {
+                        console.info("txn failed: ", tokenReceiverAddresses, amount);
+                        reject();
+                    }
+                })();
             })();
-        })();
-
+        });
     },
 
     startWebSocket: function (__callback) {
@@ -185,5 +230,11 @@ var token = {
     }
 
 };
+
+async function asyncForEach(array, callback) {
+    for (let index = 0; index < array.length; index++) {
+        await callback(array[index], index, array);
+    }
+}
 
 module.exports = token;

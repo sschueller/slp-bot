@@ -9,7 +9,7 @@ var database = {
 
     getFundingAddresses: function (offset, limit) {
         return new Promise(function (resolve, reject) {
-            db.all("SELECT deposit_addr FROM balances ORDER BY id DESC LIMIT $offset, $limit", {
+            db.all("SELECT id, deposit_addr FROM balances WHERE deposit_addr IS NOT NULL ORDER BY id DESC LIMIT $offset, $limit", {
                 $offset: offset || 0,
                 $limit: limit || 100
             }, function (error, rows) {

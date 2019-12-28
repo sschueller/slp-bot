@@ -1,9 +1,10 @@
 {
 	"error_no_wallet_file": "Wallet missing: %s , create one first with 'node create-wallet.js'",
 	"successful_tip": "{{fromUserFirstname}}  {{fromUserLastname}} tipped {{amount}} {{tokenSymbol}} to {{toUserFirstname}} {{toUserLastname}}",
-	"not_enough_funds_error": "{{fromUsername}} you do not have enogh funds",
+	"not_enough_funds_error": "{{fromUsername}} you do not have enough funds",
+	"not_enough_txos": "There are currently not enough funds confirmed to complete this request. Please try again later.",
 	"new_user_error": "{{fromUsername}} you do not have any funds. Please deposit some.",
-	"withdraw_completed": "SEND txn complete: {{sendTxid}} ",
+	"withdraw_completed": "SEND txn complete: https://explorer.bitcoin.com/bch/tx/{{sendTxid}} ",
 	"withdraw_error": "txn failed",
 	"info_help": "I am a Bot for the Token {{tokenName}} [{{tokenSymbol}}]\nHere are a list of my commands: \n\ndeposit - for information on depositing\ntip - for information on tipping {{tokenSymbol}} tokens\nwithdraw - for information on withdrawing {{tokenSymbol}} tokens\nbalance - for information on your {{tokenSymbol}} points balance\n\n\nThis bot is still under development and may fail. Do not use anything of value!!\n\n",
 	"help_tip": "To tip someone {{tokenSymbol}} Tokens, simply reply to any of their messages with: \n\ntip [amount]\n\nExample: tip 200\n\n\n\n",

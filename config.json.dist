@@ -8,5 +8,25 @@
     "language": "en",
     "telegramToken": "",
     "wordListLanguage": "english",
-    "defaultTipAmmount": 100
+    "defaultTipAmmount": 100,
+    "email": {
+        "toAddress": "slp-bot@example.com",
+        "fromAddress": "slp-bot@example.com",
+        "config": {
+            "sendmail": true,
+            "newline": "unix",
+            "path": "/usr/sbin/sendmail"
+        }
+    },
+    "tip_emojis": [
+        {
+            "icon": "🍺",
+            "value": 10000
+        },
+        {
+            "icon": "🌱",
+            "value": 1000
+        }
+    ],
+    "tip_keyword": "tip\\s+([0-9]+[\\.0-9]*)"
 }
