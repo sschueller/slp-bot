@@ -6,6 +6,7 @@ This bot was written in a few hours. There are no tests and it has not been cert
 Also note this project is written in Javascript using npm packages which should be consider insecure.
 
 ### TODO:
+- If the bot is not running deposits are not added to DB. Bot needs to go through history mempool on start to make sure it accounted for all deposits if it crashed.
 - test tokens with decimal places
 - Add tests
 - Cleanup code
