@@ -1,6 +1,6 @@
 {
 	"error_no_wallet_file": "Wallet missing: %s , create one first with 'node create-wallet.js'",
-	"successful_tip": "{{fromUserFirstname}}  {{fromUserLastname}} tipped {{amount}} {{tokenSymbol}} to {{toUserFirstname}} {{toUserLastname}}",
+	"successful_tip": "{{fromUserFirstname}} {{fromUserLastname}} tipped {{amount}} {{tokenSymbol}} to {{toUserFirstname}} {{toUserLastname}}",
 	"not_enough_funds_error": "{{fromUsername}} you do not have enough funds",
 	"not_enough_txos": "There are currently not enough funds confirmed to complete this request. Please try again later.",
 	"new_user_error": "{{fromUsername}} you do not have any funds. Please deposit some.",

@@ -222,8 +222,8 @@ token.getTokenInfo().then(function (tokenInfo) {
         // meta data
         let chatId = msg.chat.id;
         let fromUserId = msg.from.id;
-        let fromUserFirstname = msg.first_name || '';
-        let fromUserLastname = msg.last_name || '';
+        let fromUserFirstname = msg.from.first_name || '';
+        let fromUserLastname = msg.from.last_name || '';
         let toUserId = msg.reply_to_message.from.id;
         let toUserFirstname = msg.reply_to_message.from.first_name || '';
         let toUserLastname = msg.reply_to_message.fromlast_name || '';
