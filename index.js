@@ -226,7 +226,7 @@ token.getTokenInfo().then(function (tokenInfo) {
         let fromUserLastname = msg.from.last_name || '';
         let toUserId = msg.reply_to_message.from.id;
         let toUserFirstname = msg.reply_to_message.from.first_name || '';
-        let toUserLastname = msg.reply_to_message.fromlast_name || '';
+        let toUserLastname = msg.reply_to_message.from.last_name || '';
         let timestamp = msg.date;
 
         let newFromBalance;
