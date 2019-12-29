@@ -90,7 +90,7 @@ var token = {
 
             (async () => {
                 await asyncForEach(fundingAddresses, async (address) => {
-                    if (have < requiredAmount) {
+                    //if (have < requiredAmount) {
                         await token.getBalance(address.deposit_addr).then(function (balances) {
 
                             if (balances.slpTokenBalances[config.tokenAddress] !== undefined) {
@@ -112,7 +112,7 @@ var token = {
                             console.log(error)
                             // do nothing, we ignore txos which we can't use. e.g. 0 conf
                         });
-                    }
+                    //}
 
                 });
                 resolve(inputUtxos);
@@ -209,7 +209,7 @@ var token = {
 
                 if (obj.type === "mempool") {
                     obj.data.forEach(data => {
-                        if (data.slp) {
+                        if (data && data.slp) {
                             // is this my token
                             if (data.slp.detail.tokenIdHex === config.tokenAddress) {
                                 // console.log(data.slp.detail);
