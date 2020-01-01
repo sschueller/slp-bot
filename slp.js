@@ -3,7 +3,6 @@
 const BigNumber = require('bignumber.js');
 const SLPSDK = require("slp-sdk");
 const fs = require("fs");
-const forEach = require('async-foreach').forEach;
 const nodemailer = require('nodemailer');
 
 const config = require(__dirname + '/config.json');
@@ -41,7 +40,7 @@ var token = {
     },
 
     getTokenInfo: function () {
-        return bitboxNetwork.getTokenInformation(config.tokenAddress);
+        return bitboxNetwork.getTokenInformation(config.token_address);
     },
 
     generateDepositAddress: function (derivePathInteger) {
@@ -93,17 +92,17 @@ var token = {
                     //if (have < requiredAmount) {
                         await token.getBalance(address.deposit_addr).then(function (balances) {
 
-                            if (balances.slpTokenBalances[config.tokenAddress] !== undefined) {
+                            if (balances.slpTokenBalances[config.token_address] !== undefined) {
                                 // get WIF                                                
                                 token.getWifForAddress(address.id, address.deposit_addr).then(function (WIF) {
-                                    balances.slpTokenUtxos[config.tokenAddress].forEach(txo => txo.wif = WIF);
-                                    inputUtxos = inputUtxos.concat(balances.slpTokenUtxos[config.tokenAddress]);
+                                    balances.slpTokenUtxos[config.token_address].forEach(txo => txo.wif = WIF);
+                                    inputUtxos = inputUtxos.concat(balances.slpTokenUtxos[config.token_address]);
 
                                     // Added BCH for funding
                                     balances.nonSlpUtxos.forEach(txo => txo.wif = WIF);
                                     inputUtxos = inputUtxos.concat(balances.nonSlpUtxos);
 
-                                    have = token.addToBalance(have, balances.slpTokenBalances[config.tokenAddress]);
+                                    have = token.addToBalance(have, balances.slpTokenBalances[config.token_address]);
                                 }).catch(function (error) {
                                     reject(error);
                                 });
@@ -133,7 +132,7 @@ var token = {
 
                 sendAmounts = sendAmounts.map(a => (new BigNumber(a)).times(10 ** tokenInfo.decimals));
 
-                // console.info('tokenAddress', config.tokenAddress);
+                // console.info('token_address', config.token_address);
                 // console.info('sendAmounts', sendAmounts);
                 // console.info('inputUtxos', inputUtxos);
                 // console.info('tokenReceiverAddresses', tokenReceiverAddresses);
@@ -146,7 +145,7 @@ var token = {
                 (async function () {
 
                     sendTxid = await bitboxNetwork.simpleTokenSend(
-                        config.tokenAddress, // tokenId
+                        config.token_address, // tokenId
                         sendAmounts,
                         inputUtxos,
                         tokenReceiverAddresses,
@@ -205,20 +204,19 @@ var token = {
 
                 let obj = JSON.parse(message);
 
-                // console.log(message);
-
                 if (obj.type === "mempool") {
                     obj.data.forEach(data => {
                         if (data && data.slp) {
                             // is this my token
-                            if (data.slp.detail.tokenIdHex === config.tokenAddress) {
-                                // console.log(data.slp.detail);
+                            if (data.slp.detail.tokenIdHex === config.token_address) {
+                                // console.log(data);
                                 // console.log(data.slp.detail.outputs);
 
                                 for (const output of data.slp.detail.outputs) {
                                     __callback({
                                         outputAddress: output.address,
-                                        amount: output.amount
+                                        amount: output.amount,
+                                        txId: data.tx.h
                                     });
                                 };
                             }

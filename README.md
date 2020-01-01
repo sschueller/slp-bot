@@ -8,17 +8,19 @@ Also note this project is written in Javascript using npm packages which should 
 ### TODO:
 - If the bot is not running deposits are not added to DB. Bot needs to go through history mempool on start to make sure it accounted for all deposits if it crashed.
 - test tokens with decimal places
+- add "make it rain"
+- function to move all diviends paid to SLP addresses generated to main (first) wallet
+- backups
 - Add tests
 - Cleanup code
-
 
 ## General Information
 
 This bot listens for specific tipping messages in groups it has been invited in as well as direct messages (balance, deposit, withdraw and help). 
 
-The Bot has a HD Wallet which is used for all tokens. Deposists by users are sent to na unique slp address generated from the HD Wallet for each user. Token balances are tracked in an SQLite db.
+The Bot has a HD Wallet which is used for all tokens. Deposists by users are sent to an unique slp address generated from the HD Wallet for each user. Token balances are tracked in an SQLite db.
 
-In order for the bot to do withdrawl requests there needs to be some BCH in the wallet. Make sure you keep track of this and fill it when required.
+In order for the bot to do withdraw requests there needs to be some BCH in the wallet. Make sure you keep track of this and fill it when required. When a withdraw is made all SLP addresses generated with a token and/or BCH balance are used as input. Main wallet is used as change address and will receive the difference. This keeps the bulk of tokens in the main (first) wallet.
 
 SLP dividends are not tracked and all go to the bots Wallet.
 

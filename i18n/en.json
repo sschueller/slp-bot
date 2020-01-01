@@ -1,7 +1,7 @@
 {
 	"error_no_wallet_file": "Wallet missing: %s , create one first with 'node create-wallet.js'",
 	"successful_tip": "{{fromUserFirstname}} {{fromUserLastname}} tipped {{amount}} {{tokenSymbol}} to {{toUserFirstname}} {{toUserLastname}}",
-	"not_enough_funds_error": "{{fromUsername}} you do not have enough funds",
+	"not_enough_funds_error": "{{fromUserFirstname}} {{fromUserLastname}}, you do not have enough funds",
 	"not_enough_txos": "There are currently not enough funds confirmed to complete this request. Please try again later.",
 	"new_user_error": "{{fromUsername}} you do not have any funds. Please deposit some.",
 	"withdraw_completed": "SEND txn complete: https://explorer.bitcoin.com/bch/tx/{{sendTxid}} ",
@@ -11,6 +11,7 @@
 	"help_withdraw": "The proper syntax is:\n\nwithdraw \"amount\" \"simpleledger_address\"\n\n\n\n",
 	"balance_info": "Your balance: {{balance}}",
 	"deposit_info": "Please deposit to:",
-	"gift_sent": "Sent you {{ammount}} {{tokenSymbol}}",
-	"no_gifts": "Can't send you any tokens"
+	"gift_sent": "Sent you {{amount}} {{tokenSymbol}}",
+	"no_gifts": "Can't send you any tokens",
+	"deposit_received": "Deposit has been received, your new balance is: {{updatedBalance}} {{tokenSymbol}}"
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-process.env.NTBA_FIX_319 = 1;
+process.env.NTBA_FIX_319 = 1; // fixes issue with telegram api
 
 require("log-timestamp");
 
@@ -17,7 +17,7 @@ i18n.configure({
 });
 i18n.setLocale(config.language);
 
-const bot = new TelegramBot(config.telegramToken, { polling: true });
+const bot = new TelegramBot(config.telegram_token, { polling: true });
 
 token.getTokenInfo().then(function (tokenInfo) {
 
@@ -38,52 +38,54 @@ token.getTokenInfo().then(function (tokenInfo) {
     }
   });
 
-  bot.onText(/^givemesome/i, (msg) => {
-    if (msg.chat.type === 'private') {
-      // do we give out free stuff?
-      if (config.defaultTipAmmount > 0) {
-        // get db totals
-        let totalDb;
-        database.getTotalBalance()
-          .then(function (totalDb) {
-            // get wallet totals
-            return token.getBalance();
-          }).then(function (tokenBalance) {
-            // do we have enogh?
-            if (tokenBalance - totalDb < config.defaultTipAmmount) {
-              console.error('Token Balance - DB balance is less than default Tip ammount');
-              throw 'no_gifts'
-            }
-          }).then(function () {
-            // do you already have some
-            return database.getBalanceForUserId(msg.from.id);
-          }).then(function (balance) {
-            if (balance > config.defaultTipAmmount) {
-              console.error('User already has more than default Tip Ammount');
-              throw 'no_gifts'
-            }
-            return balance;
-          }).then(function (balance) {
-            return database.setBalanceForUserId(msg.from.id, balance + config.defaultTipAmmount)
-          }).then(function () {
-            console.info('User tipped default Tip Ammount');
-            throw 'gift_sent'
-          }).catch(function (message) {
-            if (message) {
-              bot.sendMessage(msg.chat.id, __(message, {
-                tokenSymbol: tokenInfo.symbol,
-                ammount: config.defaultTipAmmount
-              }), {});
-            }
-          });
-      } else {
-        console.info('Tipped default Tip Ammount is 0, disabled');
-        bot.sendMessage(msg.chat.id, __('no_gifts', {
-          tokenSymbol: tokenInfo.symbol
-        }), {});
-      }
-    }
-  });
+  // for testing this will send tokens even if they don't exist
+  //
+  // bot.onText(/^givemesome/i, (msg) => {
+  //   if (msg.chat.type === 'private') {
+  //     // do we give out free stuff?
+  //     if (config.default_tip_amount > 0) {
+  //       // get db totals
+  //       let totalDb;
+  //       database.getTotalBalance()
+  //         .then(function (totalDb) {
+  //           // get wallet totals
+  //           return token.getBalance();
+  //         }).then(function (tokenBalance) {
+  //           // do we have enogh?
+  //           if (tokenBalance - totalDb < config.default_tip_amount) {
+  //             console.error('Token Balance - DB balance is less than default Tip ammount');
+  //             throw 'no_gifts'
+  //           }
+  //         }).then(function () {
+  //           // do you already have some
+  //           return database.getBalanceForUserId(msg.from.id);
+  //         }).then(function (balance) {
+  //           if (balance > config.default_tip_amount) {
+  //             console.error('User already has more than default Tip Ammount');
+  //             throw 'no_gifts'
+  //           }
+  //           return balance;
+  //         }).then(function (balance) {
+  //           return database.setBalanceForUserId(msg.from.id, balance + config.default_tip_amount)
+  //         }).then(function () {
+  //           console.info('User tipped default Tip Ammount');
+  //           throw 'gift_sent'
+  //         }).catch(function (message) {
+  //           if (message) {
+  //             bot.sendMessage(msg.chat.id, __(message, {
+  //               tokenSymbol: tokenInfo.symbol,
+  //               ammount: config.default_tip_amount
+  //             }), {});
+  //           }
+  //         });
+  //     } else {
+  //       console.info('Tipped default Tip Ammount is 0, disabled');
+  //       bot.sendMessage(msg.chat.id, __('no_gifts', {
+  //         tokenSymbol: tokenInfo.symbol
+  //       }), {});
+  //     }
+  //   }
+  // });
 
   bot.onText(/^withdraw$/i, (msg) => {
     if (msg.chat.type === 'private') {
@@ -172,6 +174,8 @@ token.getTokenInfo().then(function (tokenInfo) {
           if (transactionId) {
             // update db
             database.setBalanceForUserId(msg.from.id, newBalance);
+            //
+            database.insertTxId(transactionId);
             // send msg
             console.info('Withdraw completed: %s to user %s txd: %s', amount, msg.from.id, transactionId);
             bot.sendMessage(msg.chat.id, __('withdraw_completed', {
@@ -179,7 +183,7 @@ token.getTokenInfo().then(function (tokenInfo) {
             }), {});
           }
         }).catch(function (message) {
-          console.error('Withdraw error', message);
+          console.error('Withdraw error: msg: ', message);
           let responseMessage = __(message, { sendTxid: transactionId });
           if (!responseMessage) {
             responseMessage = "Unable to send funds at this time. Please try again later."
@@ -199,7 +203,7 @@ token.getTokenInfo().then(function (tokenInfo) {
       let amount = 0;
 
       // tip amount
-      let regex = new RegExp(config.tip_keyword,'i');
+      let regex = new RegExp(config.tip_keyword, 'i');
       let match = regex.exec(msg.text);
       if (match) {
         amount = match[1];
@@ -265,7 +269,7 @@ token.getTokenInfo().then(function (tokenInfo) {
     }
   });
 
-
+  
   bot.on('polling_error', (error) => {
     console.error('Bot Polling Error', error);
   });
@@ -273,26 +277,45 @@ token.getTokenInfo().then(function (tokenInfo) {
 
   // listen for deposits
   token.startWebSocket(function (transaction) {
-    database.getUserIdByDepositAddress(transaction.outputAddress)
-      .then(function (userId) {
-        if (userId) {
-          // update balance of user                                        
-          console.info("Found payment of " + transaction.amount + ", adding to: " + userId);
-          database.getBalanceFromUserId(userId)
-            .then(function (balance) {
-              console.info("User " + userId + " existing balance " + balance);
-              return token.addToBalance(balance, transaction.amount);
-            }).then(function (newBalance) {
-              console.info("Settings new balance " + newBalance + " for " + userId);
-              return database.setBalanceForUserId(userId, newBalance);
-            }).catch(function (error) {
-              console.error(error);
-            });
-        }
-      }).catch(function (error) {
-        console.error(error);
-      });
+   
+    let updatedBalance;
+
+    // check we didn't already process this id
+    database.txIdRecorded(transaction.txId).then(function (result) {
+      if (!result) {
+        database.getUserIdByDepositAddress(transaction.outputAddress)
+          .then(function (userId) {
+            if (userId) {
+              // update balance of user                                        
+              console.info("Found payment of " + transaction.amount + ", adding to: " + userId);
+              database.getBalanceFromUserId(userId)
+                .then(function (balance) {
+                  console.info("User " + userId + " existing balance " + balance);
+                  return token.addToBalance(balance, transaction.amount);
+                }).then(function (newBalance) {
+                  console.info("Settings new balance " + newBalance + " for " + userId);
+                  updatedBalance = newBalance;
+                  return database.setBalanceForUserId(userId, newBalance);
+                }).then(function () { 
+                  database.insertTxId(transaction.txId);
+                  bot.sendMessage(userId, __('deposit_received', {
+                    txId: transaction.txId,
+                    amount: transaction.amount,
+                    updatedBalance: updatedBalance,
+                    tokenSymbol: tokenInfo.symbol
+                  }), {});                  
+
+                }).catch(function (error) {
+                  console.error(error);
+                });
+            }
+          }).catch(function (error) {
+            console.error(error);
+          });
+      }
+    });
   });
+ 
 
 }).catch(function () {
   console.error('Unable to get Token Information, Is the token address correct in config.json?');

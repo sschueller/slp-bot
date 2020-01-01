@@ -11,7 +11,7 @@ const net = config.testnet ? config.network_testnet : config.network_mainnet;
 
 // Instantiate BITBOX based on the network.
 const bitbox = new BITBOX({ restURL: net });
-const lang = config.wordListLanguage; // Set the language of the wallet.
+const lang = config.word_list_language; // Set the language of the wallet.
 
 console.info("Using network: ", net);
 
@@ -21,7 +21,7 @@ const outObj = {}
 
 // Check if this will overwrite existing wallet
 if (fs.existsSync(walletFile) || fs.existsSync(walletInfoFile)) {
-  console.error('Wallet files ('+walletFile+', '+walletInfoFile+') exist and would be overwritten!!')
+  console.error('Wallet files (' + walletFile + ', ' + walletInfoFile + ') exist and would be overwritten!!')
   process.exit(1);
 }
 
@@ -47,24 +47,20 @@ const masterHDNode = bitbox.HDNode.fromSeed(rootSeed, config.network)
 console.log(`BIP44 Account: "m/44'/145'/0'"`)
 outStr += `BIP44 Account: "m/44'/145'/0'"\n`
 
-// Generate the first 3 seed addresses.
-for (let i = 0; i < 3; i++) {
-  const childNode = masterHDNode.derivePath(`m/44'/145'/0'/0/${i}`)
-  console.log(`m/44'/145'/0'/0/${i}: ${bitbox.HDNode.toCashAddress(childNode)}`)
-  outStr += `m/44'/145'/0'/0/${i}: ${bitbox.HDNode.toCashAddress(childNode)}\n`
+// Generate seed address.
+const childNode = masterHDNode.derivePath(`m/44'/145'/0'/0/0`)
+console.log(`m/44'/145'/0'/0/0: ${bitbox.HDNode.toCashAddress(childNode)}`)
+outStr += `m/44'/145'/0'/0/0: ${bitbox.HDNode.toCashAddress(childNode)}\n`
 
-  // Save the first seed address for use in the .json output file.
-  if (i === 0) {
-    outObj.cashAddress = bitbox.HDNode.toCashAddress(childNode)
-    outObj.legacyAddress = bitbox.HDNode.toLegacyAddress(childNode)
-    outObj.WIF = bitbox.HDNode.toWIF(childNode)
-  }
-}
+// save to file
+outObj.cashAddress = bitbox.HDNode.toCashAddress(childNode)
+outObj.legacyAddress = bitbox.HDNode.toLegacyAddress(childNode)
+outObj.WIF = bitbox.HDNode.toWIF(childNode)
 
 // Write the extended wallet information into a text file.
 fs.writeFile(walletInfoFile, outStr, function (err) {
   if (err) return console.error(err)
-  console.log(walletInfoFile +" written successfully.")
+  console.log(walletInfoFile + " written successfully.")
 })
 
 // Write out the basic information into a json file for other example apps to use.

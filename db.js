@@ -4,8 +4,37 @@ const sqlite3 = require('sqlite3').verbose();
 const db = new sqlite3.Database(__dirname + '/sqlite3.db');
 
 db.run("CREATE TABLE IF NOT EXISTS balances (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER UNIQUE, balance NUMERIC DEFAULT 0, deposit_addr TEXT);");
+db.run("CREATE TABLE IF NOT EXISTS trans_log (id INTEGER PRIMARY KEY AUTOINCREMENT, tx_id TEXT);")
 
 var database = {
+
+    txIdRecorded: function(txId) {
+        return new Promise(function (resolve, reject) {
+            db.get("SELECT id FROM trans_log WHERE tx_id = $txId", {
+                $txId: txId
+            }, function (error, row) {
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve(row ? true : false);
+                }
+            });
+        });
+    },
+
+    insertTxId: function (txId) {
+        return new Promise(function (resolve, reject) {
+            db.run("INSERT INTO trans_log (tx_id) VALUES ($txId)", {
+                $txId: txId
+            }, function (error) {
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve(this.lastID);
+                }
+            });
+        });
+    },    
 
     getFundingAddresses: function (offset, limit) {
         return new Promise(function (resolve, reject) {
