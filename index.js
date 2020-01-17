@@ -19,6 +19,9 @@ i18n.setLocale(config.language);
 
 const bot = new TelegramBot(config.telegram_token, { polling: true });
 
+// used to block withdraw for current user Id
+let currentUser = new Array();
+
 token.getTokenInfo().then(function (tokenInfo) {
 
   bot.onText(/help|info/i, (msg) => {
@@ -145,11 +148,27 @@ token.getTokenInfo().then(function (tokenInfo) {
       let transactionId;
       let newBalance;
       let currentBalance = 0;
+      let userId = msg.from.id;
+      const index = currentUser.indexOf(userId);
+
+      // check if userId already exists in array
+      if(currentUser.indexOf(userId) != -1){
+          //throw 'withdraw in progress' error if it does
+          bot.sendMessage(msg.chat.id, __('withdraw_in_progress', {}), {});
+          return;
+        }else{
+          // otherwise, add the userId to array
+          currentUser.push(userId);
+        }
 
       database.userIdHasBalance(msg.from.id, amount)
         .then(function (result) {
           if (!result) {
             console.error('Withdraw error');
+            // remove userId from array upon error
+            if (index > -1) {
+                currentUser.splice(index, 1);
+            }
             throw 'not_enough_funds_error';
           }
           return database.getBalanceForUserId(msg.from.id);
@@ -166,6 +185,10 @@ token.getTokenInfo().then(function (tokenInfo) {
         }).then(function (txos) {
           if (txos.length === 0) {
             console.error('No txos or all txos unconfirmed');
+            // remove userId from array upon error
+            if (index > -1) {
+                currentUser.splice(index, 1);
+            }
             throw 'not_enough_txos';
           }
           return token.withdraw(address, amount, txos);
@@ -178,6 +201,11 @@ token.getTokenInfo().then(function (tokenInfo) {
             database.insertTxId(transactionId);
             // send msg
             console.info('Withdraw completed: %s to user %s txd: %s', amount, msg.from.id, transactionId);
+            
+            // withdraw completed, remove userId so they can submit another withdraw
+            if (index > -1) {
+                currentUser.splice(index, 1);
+            }
             bot.sendMessage(msg.chat.id, __('withdraw_completed', {
               sendTxid: transactionId
             }), {});
@@ -187,6 +215,10 @@ token.getTokenInfo().then(function (tokenInfo) {
           let responseMessage = __(message, { sendTxid: transactionId });
           if (!responseMessage) {
             responseMessage = "Unable to send funds at this time. Please try again later."
+          }
+          // remove userId from array upon error
+          if (index > -1) {
+            currentUser.splice(index, 1);
           }
           bot.sendMessage(msg.chat.id, responseMessage);
 
