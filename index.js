@@ -149,7 +149,7 @@ token.getTokenInfo().then(function (tokenInfo) {
       let newBalance;
       let currentBalance = 0;
       let userId = msg.from.id;
-      const index = currentUser.indexOf(userId);
+      
 
       // check if userId already exists in array
       if(currentUser.indexOf(userId) != -1){
@@ -197,6 +197,7 @@ token.getTokenInfo().then(function (tokenInfo) {
             console.info('Withdraw completed: %s to user %s txd: %s', amount, msg.from.id, transactionId);
             
             // withdraw completed, remove userId so they can submit another withdraw
+            const index = currentUser.indexOf(userId);
             if (index > -1) {
                 currentUser.splice(index, 1);
             }
@@ -211,6 +212,7 @@ token.getTokenInfo().then(function (tokenInfo) {
             responseMessage = "Unable to send funds at this time. Please try again later."
           }
           // remove userId from array upon error
+          const index = currentUser.indexOf(userId);
           if (index > -1) {
             currentUser.splice(index, 1);
           }
