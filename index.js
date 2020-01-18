@@ -19,9 +19,6 @@ i18n.setLocale(config.language);
 
 const bot = new TelegramBot(config.telegram_token, { polling: true });
 
-// used to block withdraw for current user Id
-let currentUser = new Array();
-
 token.getTokenInfo().then(function (tokenInfo) {
 
   bot.onText(/help|info/i, (msg) => {
@@ -149,17 +146,15 @@ token.getTokenInfo().then(function (tokenInfo) {
       let newBalance;
       let currentBalance = 0;
       let userId = msg.from.id;
-      
 
       // check if userId already exists in array
-      if(currentUser.indexOf(userId) != -1){
-          //throw 'withdraw in progress' error if it does
-          bot.sendMessage(msg.chat.id, __('withdraw_in_progress', {}), {});
-          return;
-        }else{
-          // otherwise, add the userId to array
-          currentUser.push(userId);
-        }
+      if (user.hasPendingWithdrawl(userId)) {
+        //throw 'withdraw in progress' error if it does
+        bot.sendMessage(msg.chat.id, __('withdraw_in_progress', {}), {});
+        return;
+      } else {
+        user.lockWithdrawl(userId);
+      }
 
       database.userIdHasBalance(msg.from.id, amount)
         .then(function (result) {
@@ -195,12 +190,9 @@ token.getTokenInfo().then(function (tokenInfo) {
             database.insertTxId(transactionId);
             // send msg
             console.info('Withdraw completed: %s to user %s txd: %s', amount, msg.from.id, transactionId);
-            
+
             // withdraw completed, remove userId so they can submit another withdraw
-            const index = currentUser.indexOf(userId);
-            if (index > -1) {
-                currentUser.splice(index, 1);
-            }
+            user.unlockWithdrawl(userId);
             bot.sendMessage(msg.chat.id, __('withdraw_completed', {
               sendTxid: transactionId
             }), {});
@@ -212,10 +204,7 @@ token.getTokenInfo().then(function (tokenInfo) {
             responseMessage = "Unable to send funds at this time. Please try again later."
           }
           // remove userId from array upon error
-          const index = currentUser.indexOf(userId);
-          if (index > -1) {
-            currentUser.splice(index, 1);
-          }
+          user.unlockWithdrawl(userId);
           bot.sendMessage(msg.chat.id, responseMessage);
 
         });
@@ -297,7 +286,7 @@ token.getTokenInfo().then(function (tokenInfo) {
     }
   });
 
-  
+
   bot.on('polling_error', (error) => {
     console.error('Bot Polling Error', error);
   });
@@ -305,7 +294,7 @@ token.getTokenInfo().then(function (tokenInfo) {
 
   // listen for deposits
   token.startWebSocket(function (transaction) {
-   
+
     let updatedBalance;
 
     // check we didn't already process this id
@@ -324,14 +313,14 @@ token.getTokenInfo().then(function (tokenInfo) {
                   console.info("Settings new balance " + newBalance + " for " + userId);
                   updatedBalance = newBalance;
                   return database.setBalanceForUserId(userId, newBalance);
-                }).then(function () { 
+                }).then(function () {
                   database.insertTxId(transaction.txId);
                   bot.sendMessage(userId, __('deposit_received', {
                     txId: transaction.txId,
                     amount: transaction.amount,
                     updatedBalance: updatedBalance,
                     tokenSymbol: tokenInfo.symbol
-                  }), {});                  
+                  }), {});
 
                 }).catch(function (error) {
                   console.error(error);
@@ -343,10 +332,25 @@ token.getTokenInfo().then(function (tokenInfo) {
       }
     });
   });
- 
 
 }).catch(function () {
   console.error('Unable to get Token Information, Is the token address correct in config.json?');
   process.exit(1);
 })
 
+
+let user = {
+  pendingWithdrawUsers: [],
+  hasPendingWithdrawl: function (userId) {
+    return this.pendingWithdrawUsers.indexOf(userId) !== -1
+  },
+  lockWithdrawl: function (userId) {
+    this.pendingWithdrawUsers.push(userId);
+  },
+  unlockWithdrawl: function (userId) {
+    let index = this.pendingWithdrawUsers.indexOf(userId);
+    if (index > -1) {
+      this.pendingWithdrawUsers.splice(index, 1);
+    }
+  }
+}
