@@ -166,9 +166,6 @@ token.getTokenInfo().then(function (tokenInfo) {
           if (!result) {
             console.error('Withdraw error');
             // remove userId from array upon error
-            if (index > -1) {
-                currentUser.splice(index, 1);
-            }
             throw 'not_enough_funds_error';
           }
           return database.getBalanceForUserId(msg.from.id);
@@ -186,9 +183,6 @@ token.getTokenInfo().then(function (tokenInfo) {
           if (txos.length === 0) {
             console.error('No txos or all txos unconfirmed');
             // remove userId from array upon error
-            if (index > -1) {
-                currentUser.splice(index, 1);
-            }
             throw 'not_enough_txos';
           }
           return token.withdraw(address, amount, txos);
