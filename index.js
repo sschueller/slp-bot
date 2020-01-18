@@ -145,11 +145,22 @@ token.getTokenInfo().then(function (tokenInfo) {
       let transactionId;
       let newBalance;
       let currentBalance = 0;
+      let userId = msg.from.id;
+
+      // check if userId already exists in array
+      if (user.hasPendingWithdrawl(userId)) {
+        //throw 'withdraw in progress' error if it does
+        bot.sendMessage(msg.chat.id, __('withdraw_in_progress', {}), {});
+        return;
+      } else {
+        user.lockWithdrawl(userId);
+      }
 
       database.userIdHasBalance(msg.from.id, amount)
         .then(function (result) {
           if (!result) {
             console.error('Withdraw error');
+            // remove userId from array upon error
             throw 'not_enough_funds_error';
           }
           return database.getBalanceForUserId(msg.from.id);
@@ -166,6 +177,7 @@ token.getTokenInfo().then(function (tokenInfo) {
         }).then(function (txos) {
           if (txos.length === 0) {
             console.error('No txos or all txos unconfirmed');
+            // remove userId from array upon error
             throw 'not_enough_txos';
           }
           return token.withdraw(address, amount, txos);
@@ -178,6 +190,9 @@ token.getTokenInfo().then(function (tokenInfo) {
             database.insertTxId(transactionId);
             // send msg
             console.info('Withdraw completed: %s to user %s txd: %s', amount, msg.from.id, transactionId);
+
+            // withdraw completed, remove userId so they can submit another withdraw
+            user.unlockWithdrawl(userId);
             bot.sendMessage(msg.chat.id, __('withdraw_completed', {
               sendTxid: transactionId
             }), {});
@@ -188,6 +203,8 @@ token.getTokenInfo().then(function (tokenInfo) {
           if (!responseMessage) {
             responseMessage = "Unable to send funds at this time. Please try again later."
           }
+          // remove userId from array upon error
+          user.unlockWithdrawl(userId);
           bot.sendMessage(msg.chat.id, responseMessage);
 
         });
@@ -269,7 +286,7 @@ token.getTokenInfo().then(function (tokenInfo) {
     }
   });
 
-  
+
   bot.on('polling_error', (error) => {
     console.error('Bot Polling Error', error);
   });
@@ -277,7 +294,7 @@ token.getTokenInfo().then(function (tokenInfo) {
 
   // listen for deposits
   token.startWebSocket(function (transaction) {
-   
+
     let updatedBalance;
 
     // check we didn't already process this id
@@ -296,14 +313,14 @@ token.getTokenInfo().then(function (tokenInfo) {
                   console.info("Settings new balance " + newBalance + " for " + userId);
                   updatedBalance = newBalance;
                   return database.setBalanceForUserId(userId, newBalance);
-                }).then(function () { 
+                }).then(function () {
                   database.insertTxId(transaction.txId);
                   bot.sendMessage(userId, __('deposit_received', {
                     txId: transaction.txId,
                     amount: transaction.amount,
                     updatedBalance: updatedBalance,
                     tokenSymbol: tokenInfo.symbol
-                  }), {});                  
+                  }), {});
 
                 }).catch(function (error) {
                   console.error(error);
@@ -315,10 +332,25 @@ token.getTokenInfo().then(function (tokenInfo) {
       }
     });
   });
- 
 
 }).catch(function () {
   console.error('Unable to get Token Information, Is the token address correct in config.json?');
   process.exit(1);
 })
 
+
+let user = {
+  pendingWithdrawUsers: [],
+  hasPendingWithdrawl: function (userId) {
+    return this.pendingWithdrawUsers.indexOf(userId) !== -1
+  },
+  lockWithdrawl: function (userId) {
+    this.pendingWithdrawUsers.push(userId);
+  },
+  unlockWithdrawl: function (userId) {
+    let index = this.pendingWithdrawUsers.indexOf(userId);
+    if (index > -1) {
+      this.pendingWithdrawUsers.splice(index, 1);
+    }
+  }
+}
