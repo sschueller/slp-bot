@@ -175,7 +175,7 @@ token.getTokenInfo().then(function (tokenInfo) {
             // update db
             database.setBalanceForUserId(msg.from.id, newBalance);
             //
-            database.insertTxId(transactionId);
+            database.logTransaction(transactionId, amount, msg.from.id, '', 'withdraw');
             // send msg
             console.info('Withdraw completed: %s to user %s txd: %s', amount, msg.from.id, transactionId);
             bot.sendMessage(msg.chat.id, __('withdraw_completed', {
@@ -254,6 +254,7 @@ token.getTokenInfo().then(function (tokenInfo) {
             return database.setBalanceForUserId(fromUserId, newFromBalance);
           }).then(function () {
             console.info('Tip successful %s to user %s from user %s', amount, toUserId, fromUserId);
+            database.logTransaction('', amount, fromUserId, toUserId, 'tip');
             throw 'successful_tip';
           }).catch(function (message) {
             bot.sendMessage(chatId, __(message, {
@@ -297,7 +298,7 @@ token.getTokenInfo().then(function (tokenInfo) {
                   updatedBalance = newBalance;
                   return database.setBalanceForUserId(userId, newBalance);
                 }).then(function () { 
-                  database.insertTxId(transaction.txId);
+                  database.logTransaction(transaction.txId, transaction.amount, '', userId, 'deposit');
                   bot.sendMessage(userId, __('deposit_received', {
                     txId: transaction.txId,
                     amount: transaction.amount,

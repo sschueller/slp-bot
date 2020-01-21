@@ -3,8 +3,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const db = new sqlite3.Database(__dirname + '/sqlite3.db');
 
-db.run("CREATE TABLE IF NOT EXISTS balances (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER UNIQUE, balance NUMERIC DEFAULT 0, deposit_addr TEXT);");
-db.run("CREATE TABLE IF NOT EXISTS trans_log (id INTEGER PRIMARY KEY AUTOINCREMENT, tx_id TEXT);")
+db.migrate({ force: 'last' });
 
 var database = {
 
@@ -22,10 +21,16 @@ var database = {
         });
     },
 
-    insertTxId: function (txId) {
+    logTransaction: function (txId, amount, fromUser, toUser, type) {
+        let timestamp = new Date().getTime();
         return new Promise(function (resolve, reject) {
-            db.run("INSERT INTO trans_log (tx_id) VALUES ($txId)", {
-                $txId: txId
+            db.run("INSERT INTO trans_log (tx_id, amount, timestamp, from_user, to_user, type) VALUES ($txId, $amount, $timestamp, $fromUser, $toUser, $type)", {
+                $txId: txId,
+                $amount: amount,
+                $timestamp: timestamp,
+                $fromUser: fromUser,
+                $toUser: toUser,
+                $type: type
             }, function (error) {
                 if (error) {
                     reject(error);
@@ -34,7 +39,7 @@ var database = {
                 }
             });
         });
-    },    
+    },
 
     getFundingAddresses: function (offset, limit) {
         return new Promise(function (resolve, reject) {
