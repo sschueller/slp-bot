@@ -90,27 +90,33 @@ var token = {
             (async () => {
                 await asyncForEach(fundingAddresses, async (address) => {
                     //if (have < requiredAmount) {
-                        await token.getBalance(address.deposit_addr).then(function (balances) {
+                    await token.getBalance(address.deposit_addr).then(function (balances) {
 
-                            if (balances.slpTokenBalances[config.token_address] !== undefined) {
+                        if (balances.slpTokenBalances[config.token_address] !== undefined) {
+                            // get WIF                                                
                                 // get WIF                                                
-                                token.getWifForAddress(address.id, address.deposit_addr).then(function (WIF) {
-                                    balances.slpTokenUtxos[config.token_address].forEach(txo => txo.wif = WIF);
-                                    inputUtxos = inputUtxos.concat(balances.slpTokenUtxos[config.token_address]);
+                            // get WIF                                                
+                                // get WIF                                                
+                            // get WIF                                                
+                                // get WIF                                                
+                            // get WIF                                                
+                            token.getWifForAddress(address.id, address.deposit_addr).then(function (WIF) {
+                                balances.slpTokenUtxos[config.token_address].forEach(txo => txo.wif = WIF);
+                                inputUtxos = inputUtxos.concat(balances.slpTokenUtxos[config.token_address]);
 
-                                    // Added BCH for funding
-                                    balances.nonSlpUtxos.forEach(txo => txo.wif = WIF);
-                                    inputUtxos = inputUtxos.concat(balances.nonSlpUtxos);
+                                // Added BCH for funding
+                                balances.nonSlpUtxos.forEach(txo => txo.wif = WIF);
+                                inputUtxos = inputUtxos.concat(balances.nonSlpUtxos);
 
-                                    have = token.addToBalance(have, balances.slpTokenBalances[config.token_address]);
-                                }).catch(function (error) {
-                                    reject(error);
-                                });
-                            }
-                        }).catch(function (error) {
-                            console.log(error)
-                            // do nothing, we ignore txos which we can't use. e.g. 0 conf
-                        });
+                                have = token.addToBalance(have, balances.slpTokenBalances[config.token_address]);
+                            }).catch(function (error) {
+                                reject(error);
+                            });
+                        }
+                    }).catch(function (error) {
+                        console.log(error)
+                        // do nothing, we ignore txos which we can't use. e.g. 0 conf
+                    });
                     //}
 
                 });
@@ -188,28 +194,29 @@ var token = {
         // listen for mempool entries
         let socket = new SLP.Socket({
             callback: () => {
-                console.info("Web Socket Connected")
+                console.info("Web Socket Connected to:", webSocketUrl)
             },
             wsURL: webSocketUrl
         })
         socket.listen(
             {
-                v: 3,
-                q: {
-                    find: {
-                    }
+                "v": 3,
+                "q": {
+                    "find": { "slp.detail.tokenIdHex": config.token_address }
                 }
             },
             (message) => {
-
                 let obj = JSON.parse(message);
+
+                console.log(obj);
 
                 if (obj.type === "mempool") {
                     obj.data.forEach(data => {
+                        console.log(data.out);
                         if (data && data.slp) {
                             // is this my token
                             if (data.slp.detail.tokenIdHex === config.token_address) {
-                                // console.log(data);
+                                //console.log(data);
                                 // console.log(data.slp.detail.outputs);
 
                                 for (const output of data.slp.detail.outputs) {

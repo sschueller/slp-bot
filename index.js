@@ -314,6 +314,8 @@ token.getTokenInfo().then(function (tokenInfo) {
             console.error(error);
           });
       }
+    }).catch(function (error) {
+      console.error(error);
     });
   });
  
