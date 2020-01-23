@@ -131,10 +131,10 @@ token.getTokenInfo().then(function (tokenInfo) {
         }).then(function () {
           bot.sendMessage(msg.chat.id, __('deposit_info'), {});
           bot.sendMessage(msg.chat.id, address, {});
-        })
-      // }).catch(function () {
-      //   console.error('error generating deposit address');
-      // });
+        });
+//        .catch(function (err) {
+//         console.error('error generating deposit address', err);
+//       });
     }
   });
 

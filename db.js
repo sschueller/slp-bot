@@ -1,112 +1,97 @@
 'use strict';
-
-const sqlite3 = require('sqlite3').verbose();
-const db = new sqlite3.Database(__dirname + '/sqlite3.db');
-
-db.migrate({ force: 'last' });
+const sqlite = require('sqlite');
+const dbPromise = Promise.resolve()
+  .then(() => sqlite.open(__dirname + '/sqlite3.db', { Promise }))
+  .then(db => db.migrate({ force: 'last' }));
 
 var database = {
 
     txIdRecorded: function(txId) {
         return new Promise(function (resolve, reject) {
-            db.get("SELECT id FROM trans_log WHERE tx_id = $txId", {
-                $txId: txId
-            }, function (error, row) {
-                if (error) {
-                    reject(error);
-                } else {
-                    resolve(row ? true : false);
-                }
-            });
+            dbPromise.then(function (db) {
+                db.get("SELECT id FROM trans_log WHERE tx_id = $txId", {
+                    $txId: txId
+                }).then(function (row) {
+                    resolve(row ? true : false);                    
+                }).catch(error => reject(error));
+            }).catch(err => console.log('DB Promise error', err))         
         });
     },
 
     logTransaction: function (txId, amount, fromUser, toUser, type) {
         let timestamp = new Date().getTime();
         return new Promise(function (resolve, reject) {
-            db.run("INSERT INTO trans_log (tx_id, amount, timestamp, from_user, to_user, type) VALUES ($txId, $amount, $timestamp, $fromUser, $toUser, $type)", {
-                $txId: txId,
-                $amount: amount,
-                $timestamp: timestamp,
-                $fromUser: fromUser,
-                $toUser: toUser,
-                $type: type
-            }, function (error) {
-                if (error) {
-                    reject(error);
-                } else {
-                    resolve(this.lastID);
-                }
-            });
+            dbPromise.then(function (db) {
+                db.run("INSERT INTO trans_log (tx_id, amount, timestamp, from_user, to_user, type) VALUES ($txId, $amount, $timestamp, $fromUser, $toUser, $type)", {
+                    $txId: txId,
+                    $amount: amount,
+                    $timestamp: timestamp,
+                    $fromUser: fromUser,
+                    $toUser: toUser,
+                    $type: type
+                }).then(function () {
+                    resolve(this.lastID);                    
+                }).catch(error => reject(error));
+            }).catch(err => console.log('DB Promise error', err))         
         });
     },
 
     getFundingAddresses: function (offset, limit) {
         return new Promise(function (resolve, reject) {
-            db.all("SELECT id, deposit_addr FROM balances WHERE deposit_addr IS NOT NULL ORDER BY id DESC LIMIT $offset, $limit", {
-                $offset: offset || 0,
-                $limit: limit || 100
-            }, function (error, rows) {
-                if (error) {
-                    reject(error);
-                } else {
-                    resolve(rows);
-                }
-            });
+            dbPromise.then(function (db) {
+                db.all("SELECT id, deposit_addr FROM balances WHERE deposit_addr IS NOT NULL ORDER BY id DESC LIMIT $offset, $limit", {
+                    $offset: offset || 0,
+                    $limit: limit || 100
+                }).then(function (rows) {
+                    resolve(rows);                    
+                }).catch(error => reject(error));
+            }).catch(err => console.log('DB Promise error', err))  
         });
     },
 
     getDbIndexFromUserId: function (userId) {
         return new Promise(function (resolve, reject) {
-            db.get("SELECT id FROM balances WHERE user_id = $userId", {
-                $userId: userId
-            }, function (error, row) {
-                if (error) {
-                    reject(error);
-                } else {
-                    resolve(row.id);
-                }
-            });
+            dbPromise.then(function (db) {
+                db.get("SELECT id FROM balances WHERE user_id = $userId", {
+                    $userId: userId
+                }).then(function (row) {
+                    resolve(row.id);                    
+                }).catch(error => reject(error));
+            }).catch(err => console.log('DB Promise error', err))  
         });
     },
 
     getTotalBalance: function () {
         return new Promise(function (resolve, reject) {
-            db.get("SELECT SUM(balance) FROM balances", {}, function (error, row) {
-                if (error) {
-                    reject(error);
-                } else {
-                    resolve(row ? row : 0);
-                }
-            });
+            dbPromise.then(function (db) {
+                db.get("SELECT SUM(balance) FROM balances", {}).then(function (row) {
+                    resolve(row ? row : 0);                    
+                }).catch(error => reject(error));
+            }).catch(err => console.log('DB Promise error', err))  
         });
     },
 
     getUserIdByDepositAddress: function (depositAddress) {
         return new Promise(function (resolve, reject) {
-            db.get("SELECT user_id FROM balances WHERE deposit_addr = $depositAddress", {
-                $depositAddress: depositAddress
-            }, function (error, row) {
-                if (error) {
-                    reject(error);
-                } else {
-                    resolve(row ? row.user_id : false);
-                }
-            });
+            dbPromise.then(function (db) {
+                db.get("SELECT user_id FROM balances WHERE deposit_addr = $depositAddress", {
+                    $depositAddress: depositAddress
+                }).then(function (row) {
+                    resolve(row ? row.user_id : false);                    
+                }).catch(error => reject(error));
+            }).catch(err => console.log('DB Promise error', err))  
         });
     },
 
     userIdExists: function (userId) {
         return new Promise(function (resolve, reject) {
-            db.get("SELECT id FROM balances WHERE user_id = $userId", {
-                $userId: userId
-            }, function (error, row) {
-                if (error) {
-                    reject(error);
-                } else {
-                    resolve(row ? true : false);
-                }
-            });
+            dbPromise.then(function (db) {
+                db.get("SELECT id FROM balances WHERE user_id = $userId", {
+                    $userId: userId
+                }).then(function (row) {
+                    resolve(row ? true : false);                    
+                }).catch(error => reject(error));
+            }).catch(err => console.log('DB Promise error', err))  
         });
     },
 
@@ -122,21 +107,19 @@ var database = {
 
     getBalanceFromUserId: function (userId) {
         return new Promise(function (resolve, reject) {
-            db.get("SELECT balance FROM balances WHERE user_id = $userId", {
-                $userId: userId
-            }, function (error, row) {
-                if (error) {
-                    reject(error);
-                } else {
+            dbPromise.then(function (db) {
+                db.get("SELECT balance FROM balances WHERE user_id = $userId", {
+                    $userId: userId
+                }).then(function (row) {
                     let balance = row ? row.balance : 0;
-                    resolve(balance);
-                }
-            });
+                    resolve(balance);                    
+                }).catch(error => reject(error));
+            }).catch(err => console.log('DB Promise error', err))  
         });
     },
 
     setBalanceForUserId: function (userId, newBalance) {
-        return new Promise(function (resolve, reject) {
+        return new Promise(function (resolve, reject) {            
             database.userIdExists(userId).then(function (result) {
                 if (!result) {
                     return database.insertBalanceForUserId(userId, newBalance)
@@ -146,17 +129,15 @@ var database = {
                             reject(error);
                         });
                 } else {
-                    //console.log('user exist ', newBalance, userId);
-                    db.run("UPDATE balances SET balance = $balance WHERE user_id = $userId", {
-                        $balance: newBalance,
-                        $userId: userId
-                    }, function (error) {
-                        if (error) {
-                            reject(error);
-                        } else {
-                            resolve();
-                        }
-                    });
+                    dbPromise.then(function (db) {
+                        //console.log('user exist ', newBalance, userId);
+                        db.run("UPDATE balances SET balance = $balance WHERE user_id = $userId", {
+                            $balance: newBalance,
+                            $userId: userId
+                        }).then(function () {
+                            resolve();                            
+                        }).catch(error => reject(error));
+                    }).catch(err => console.log('DB Promise error', err))  
                 }
             }).catch(function (error) {
                 reject(error);
@@ -166,49 +147,43 @@ var database = {
 
     insertBalanceForUserId: function (userId, balance) {
         return new Promise(function (resolve, reject) {
-            db.run("INSERT INTO balances (balance, user_id) VALUES ($balance, $userId)", {
-                $balance: balance,
-                $userId: userId
-            }, function (error) {
-                if (error) {
-                    reject(error);
-                } else {
-                    resolve(this.lastID);
-                }
-            });
+            dbPromise.then(function (db) {
+                db.run("INSERT INTO balances (balance, user_id) VALUES ($balance, $userId)", {
+                    $balance: balance,
+                    $userId: userId
+                }).then(function () {
+                    resolve(this.lastID);                    
+                }).catch(error => reject(error));
+            }).catch(err => console.log('DB Promise error', err))  
         });
     },
 
     getBalanceForUserId: function (userId) {
         return new Promise(function (resolve, reject) {
-            db.get("SELECT balance FROM balances WHERE user_id = $userId", {
-                $userId: userId
-            }, function (error, row) {
-                if (error) {
-                    reject(error);
-                } else {
+            dbPromise.then(function (db) {
+                db.get("SELECT balance FROM balances WHERE user_id = $userId", {
+                    $userId: userId
+                }).then(function (row) {
                     let balance = row ? row.balance : 0;
-                    resolve(balance);
-                }
-            });
+                    resolve(balance);                    
+                }).catch(error => reject(error));
+            }).catch(err => console.log('DB Promise error', err))  
         });
     },
 
     getDepositAddressForUserId: function (userId) {
         return new Promise(function (resolve, reject) {
-            db.get("SELECT deposit_addr FROM balances WHERE user_id = $userId", {
-                $userId: userId
-            }, function (error, row) {
-                if (error) {
-                    reject(error);
-                } else {
+            dbPromise.then(function (db) {
+                db.get("SELECT deposit_addr FROM balances WHERE user_id = $userId", {
+                    $userId: userId
+                }).then(function (row) {
                     if (row) {
                         resolve(row.deposit_addr);
                     } else {
                         resolve(false);
-                    }
-                }
-            });
+                    }                    
+                }).catch(error => reject(error));
+            }).catch(err => console.log('DB Promise error', err))  
         });
     },
 
@@ -216,19 +191,18 @@ var database = {
         return new Promise(function (resolve, reject) {
             database.userIdExists(userId)
                 .then(function () {
-                    db.run("UPDATE balances SET deposit_addr = $depositAddress WHERE user_id = $userId", {
-                        $depositAddress: depositAddress,
-                        $userId: userId
-                    }, function (error) {
-                        if (error) {
-                            reject(error);
-                        } else {
-                            resolve();
-                        }
-                    });
+                    dbPromise.then(function (db) {
+                        db.run("UPDATE balances SET deposit_addr = $depositAddress WHERE user_id = $userId", {
+                            $depositAddress: depositAddress,
+                            $userId: userId
+                        }).then(function () {
+                            resolve();                            
+                        }).catch(error => reject(error));
+                    }).catch(err => console.log('DB Promise error', err))  
                 }).catch(function (error) {
                     reject(error);
                 });
+            
         });
     }
 };
