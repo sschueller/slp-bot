@@ -232,7 +232,61 @@ var token = {
                 }
             }
         )
+    },
+
+    syncTransactions: function (blockHeight, __callback) {               
+        let lastBlock = blockHeight;
+        let currentBlock = 0;
+
+        console.log('syncTransactions Called, starting at block: ', blockHeight);
+
+        (async () => {
+            let res = await SLP.SLPDB.get({
+            v: 3,
+            q: {
+                db: ["c", "u"], // confirmed (blockchain) and unconfirmed (mempool)
+                find: { 
+                    "slp.detail.tokenIdHex": config.token_address,
+                    "slp.valid": true,
+                    "blk.t": { "$gte": lastBlock}
+                },
+                sort: { "blk.t": 1 }        
+            },
+            })  
+
+            res.c.forEach(data => {
+                for (const output of data.slp.detail.outputs) {
+                    __callback({
+                        outputAddress: output.address,
+                        amount: output.amount,
+                        txId: data.tx.h
+                    });
+                };
+                if (data.blk.t > currentBlock) {
+                    currentBlock = data.blk.t;
+                }
+            });
+
+            res.c.forEach(data => {
+                for (const output of data.slp.detail.outputs) {
+                    __callback({
+                        outputAddress: output.address,
+                        amount: output.amount,
+                        txId: data.tx.h
+                    });
+                };
+                if (data.blk.t > currentBlock) {
+                    currentBlock = data.blk.t;
+                }
+            });
+            
+            console.log('Last block: ', currentBlock);
+            console.log('Total Confirmed (blockchain):', res.c.length);    
+            console.log('Total Unconfirmed (mempool):', res.u.length);    
+            
+        })();
     }
+
 
 };
 

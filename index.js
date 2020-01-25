@@ -104,6 +104,15 @@ token.getTokenInfo().then(function (tokenInfo) {
     }
   });
 
+  bot.onText(/resync\s+([0-9]+)\s+/i, (msg, match) => {
+    if (msg.chat.type === 'private' && msg.from.id === config.owner_telegram_id) {
+      let blockHeight = match[1];
+      token.syncTransactions(blockHeight, function (transaction) {   
+          depositFunds(transaction);
+      });
+    }
+  });
+
   bot.onText(/deposit/i, (msg) => {
     if (msg.chat.type === 'private') {
       let address = '';
@@ -277,9 +286,18 @@ token.getTokenInfo().then(function (tokenInfo) {
 
 
   // listen for deposits
-  token.startWebSocket(function (transaction) {
-   
-    let updatedBalance;
+  token.startWebSocket(function (transaction) {   
+    depositFunds(transaction);
+  });
+ 
+
+}).catch(function () {
+  console.error('Unable to get Token Information, Is the token address correct in config.json?');
+  process.exit(1);
+})
+
+function depositFunds(transaction) {
+  let updatedBalance;
 
     // check we didn't already process this id
     database.txIdRecorded(transaction.txId).then(function (result) {
@@ -317,11 +335,4 @@ token.getTokenInfo().then(function (tokenInfo) {
     }).catch(function (error) {
       console.error(error);
     });
-  });
- 
-
-}).catch(function () {
-  console.error('Unable to get Token Information, Is the token address correct in config.json?');
-  process.exit(1);
-})
-
+}
