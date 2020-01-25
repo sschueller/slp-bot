@@ -90,27 +90,33 @@ var token = {
             (async () => {
                 await asyncForEach(fundingAddresses, async (address) => {
                     //if (have < requiredAmount) {
-                        await token.getBalance(address.deposit_addr).then(function (balances) {
+                    await token.getBalance(address.deposit_addr).then(function (balances) {
 
-                            if (balances.slpTokenBalances[config.token_address] !== undefined) {
-                                // get WIF                                                
-                                token.getWifForAddress(address.id, address.deposit_addr).then(function (WIF) {
-                                    balances.slpTokenUtxos[config.token_address].forEach(txo => txo.wif = WIF);
-                                    inputUtxos = inputUtxos.concat(balances.slpTokenUtxos[config.token_address]);
+                        if (balances.slpTokenBalances[config.token_address] !== undefined) {
+                            // get WIF                                                
+                            // get WIF                                                
+                            // get WIF                                                
+                            // get WIF                                                
+                            // get WIF                                                
+                            // get WIF                                                
+                            // get WIF                                                
+                            token.getWifForAddress(address.id, address.deposit_addr).then(function (WIF) {
+                                balances.slpTokenUtxos[config.token_address].forEach(txo => txo.wif = WIF);
+                                inputUtxos = inputUtxos.concat(balances.slpTokenUtxos[config.token_address]);
 
-                                    // Added BCH for funding
-                                    balances.nonSlpUtxos.forEach(txo => txo.wif = WIF);
-                                    inputUtxos = inputUtxos.concat(balances.nonSlpUtxos);
+                                // Added BCH for funding
+                                balances.nonSlpUtxos.forEach(txo => txo.wif = WIF);
+                                inputUtxos = inputUtxos.concat(balances.nonSlpUtxos);
 
-                                    have = token.addToBalance(have, balances.slpTokenBalances[config.token_address]);
-                                }).catch(function (error) {
-                                    reject(error);
-                                });
-                            }
-                        }).catch(function (error) {
-                            console.log(error)
-                            // do nothing, we ignore txos which we can't use. e.g. 0 conf
-                        });
+                                have = token.addToBalance(have, balances.slpTokenBalances[config.token_address]);
+                            }).catch(function (error) {
+                                reject(error);
+                            });
+                        }
+                    }).catch(function (error) {
+                        console.log(error)
+                        // do nothing, we ignore txos which we can't use. e.g. 0 conf
+                    });
                     //}
 
                 });
@@ -188,43 +194,110 @@ var token = {
         // listen for mempool entries
         let socket = new SLP.Socket({
             callback: () => {
-                console.info("Web Socket Connected")
+                console.info("Web Socket Connected to:", webSocketUrl)
             },
             wsURL: webSocketUrl
         })
         socket.listen(
             {
-                v: 3,
-                q: {
-                    find: {
+                "v": 3,
+                "q": {
+                    "find": {
+                        "slp.detail.tokenIdHex": config.token_address
                     }
                 }
             },
             (message) => {
-
                 let obj = JSON.parse(message);
 
                 if (obj.type === "mempool") {
                     obj.data.forEach(data => {
                         if (data && data.slp) {
-                            // is this my token
-                            if (data.slp.detail.tokenIdHex === config.token_address) {
-                                // console.log(data);
-                                // console.log(data.slp.detail.outputs);
 
-                                for (const output of data.slp.detail.outputs) {
-                                    __callback({
-                                        outputAddress: output.address,
-                                        amount: output.amount,
-                                        txId: data.tx.h
-                                    });
-                                };
-                            }
+                            let validTxts = [];
+                            for (const output of data.slp.detail.outputs) {
+                                validTxts.push({
+                                    outputAddress: output.address,
+                                    amount: output.amount,
+                                    txId: data.tx.h
+                                });
+                            };
+
+                            (async () => {
+                                await asyncForEach(validTxts, async (txt) => {
+                                    await __callback(txt);
+                                });
+                            })();
+
                         }
                     });
                 }
             }
         )
+    },
+
+    syncTransactions: function (blockHeight, __callback) {
+
+        return new Promise(function (resolve, reject) {
+
+            let lastBlock = parseInt(blockHeight);
+            let currentBlock = 0;
+
+            console.log('syncTransactions Called, starting at block: ', blockHeight);
+
+            (async () => {
+                let res = await SLP.SLPDB.get({
+                    v: 3,
+                    q: {
+                        db: ["c", "u"], // confirmed (blockchain) and unconfirmed (mempool)
+                        find: {
+                            "slp.detail.tokenIdHex": config.token_address,
+                            "slp.valid": true,
+                            "blk.i": { "$gte": lastBlock }
+                        },
+                        sort: { "blk.t": 1 }
+                    },
+                })
+
+                console.log('Total Confirmed (blockchain):', res.c.length);
+                console.log('Total Unconfirmed (mempool):', res.u.length);
+
+                let validTxts = [];
+                res.c.forEach(data => {
+                    for (const output of data.slp.detail.outputs) {
+                        validTxts.push({
+                            outputAddress: output.address,
+                            amount: output.amount,
+                            txId: data.tx.h
+                        });
+                        if (data.blk.t > currentBlock) {
+                            currentBlock = data.blk.i;
+                        }
+                    }
+                });
+                res.u.forEach(data => {
+                    for (const output of data.slp.detail.outputs) {
+                        validTxts.push({
+                            outputAddress: output.address,
+                            amount: output.amount,
+                            txId: data.tx.h
+                        });
+                        if (data.blk.t > currentBlock) {
+                            currentBlock = data.blk.i;
+                        }
+                    }
+                });
+
+                (async () => {
+                    await asyncForEach(validTxts, async (txt) => {
+                        await __callback(txt);
+                        
+                    });
+                    console.log('Last Checked block Index:', currentBlock);
+                    resolve(currentBlock);
+                })();
+            })();
+        });
     }
 
 };

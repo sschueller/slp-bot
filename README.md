@@ -5,8 +5,12 @@ This bot was written in a few hours. There are no tests and it has not been cert
 
 Also note this project is written in Javascript using npm packages which should be consider insecure.
 
+### Upgrading from 1.1.0 to 1.2.0:
+- Make a backup of your db (sqlite.db) file
+- Migration to the new DB should happen automatically
+- If any transactions in the blockchain have not been recorded they will be added
+
 ### TODO:
-- If the bot is not running deposits are not added to DB. Bot needs to go through history mempool on start to make sure it accounted for all deposits if it crashed.
 - test tokens with decimal places
 - add "make it rain"
 - function to move all diviends paid to SLP addresses generated to main (first) wallet
