@@ -14,5 +14,6 @@
 	"gift_sent": "Sent you {{amount}} {{tokenSymbol}}",
 	"no_gifts": "Can't send you any tokens",
 	"deposit_received": "Deposit has been received, your new balance is: {{updatedBalance}} {{tokenSymbol}}",
-	"withdraw_in_progress": "Withdraw is already currently in progress"
+	"withdraw_in_progress": "Withdraw is already currently in progress",
+	"who_am_i": "You are Telegram Used Id: {{userId}}"
 }

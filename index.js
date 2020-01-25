@@ -10,6 +10,8 @@ const config = require(__dirname + '/config.json');
 const database = require(__dirname + '/db.js');
 const token = require(__dirname + '/slp.js');
 
+let lastCheckedBlock = 0;
+
 i18n.configure({
   locales: [config.language],
   register: global,
@@ -107,14 +109,22 @@ token.getTokenInfo().then(function (tokenInfo) {
     }
   });
 
-  bot.onText(/resync\s+([0-9]+)\s+/i, (msg, match) => {
-    if (msg.chat.type === 'private' && msg.from.id === config.owner_telegram_id) {
-      let blockHeight = match[1];
-      token.syncTransactions(blockHeight, function (transaction) {
-        user.depositFunds(transaction);
-      });
-    }
-  });
+  // bot.onText(/whoami/i, (msg) => {
+  //   if (msg.chat.type === 'private') {
+  //     bot.sendMessage(msg.chat.id, __('who_am_i', {
+  //       userId: msg.from.id
+  //     }), {});
+  //   }
+  // });
+
+  // bot.onText(/resync\s+([0-9]+)/i, (msg, match) => {
+  //   if (msg.chat.type === 'private' && parseInt(msg.from.id) === config.owner_telegram_id) {
+  //     let blockHeight = match[1];
+  //     token.syncTransactions(blockHeight, function (transaction) {
+  //       return user.depositFunds(transaction);
+  //     });
+  //   }
+  // });
 
   bot.onText(/deposit/i, (msg) => {
     if (msg.chat.type === 'private') {
@@ -308,68 +318,81 @@ token.getTokenInfo().then(function (tokenInfo) {
     user.depositFunds(transaction);
   });
 
+  // periodic check of mempool and blockchain for changes
+  setInterval(function () {
+    (async () => {
+      lastCheckedBlock = await token.syncTransactions(lastCheckedBlock, function (transaction) {
+        return user.depositFunds(transaction);
+      });
+    })();
+  }, 60000);
+
+  let user = {
+    pendingWithdrawUsers: [],
+    hasPendingWithdrawl: function (userId) {
+      return this.pendingWithdrawUsers.indexOf(userId) !== -1
+    },
+    lockWithdrawl: function (userId) {
+      this.pendingWithdrawUsers.push(userId);
+    },
+    unlockWithdrawl: function (userId) {
+      let index = this.pendingWithdrawUsers.indexOf(userId);
+      if (index > -1) {
+        this.pendingWithdrawUsers.splice(index, 1);
+      }
+    },
+    depositFunds: function (transaction) {
+      return new Promise(function (resolve, reject) {
+        let updatedBalance;
+        // check we didn't already process this id
+        database.txIdRecorded(transaction.txId).then(function (result) {
+          if (!result) {
+            database.getUserIdByDepositAddress(transaction.outputAddress)
+              .then(function (userId) {
+                if (userId) {
+                  // update balance of user
+                  console.info("Found payment of " + transaction.amount + ", adding to: " + userId);
+                  database.getBalanceFromUserId(userId)
+                    .then(function (balance) {
+                      console.info("User " + userId + " existing balance " + balance);
+                      return token.addToBalance(balance, transaction.amount);
+                    }).then(function (newBalance) {
+                      console.info("Settings new balance " + newBalance + " for " + userId);
+                      updatedBalance = newBalance;
+                      return database.setBalanceForUserId(userId, newBalance);
+                    }).then(function () {
+                      database.logTransaction(transaction.txId, transaction.amount, '', userId, 'deposit');
+                      bot.sendMessage(userId, __('deposit_received', {
+                        txId: transaction.txId,
+                        amount: transaction.amount,
+                        updatedBalance: updatedBalance,
+                        tokenSymbol: tokenInfo.symbol
+                      }), {});
+                      resolve();
+                    }).catch(function (error) {
+                      console.error(error);
+                      resolve();
+                    });
+                } else {
+                  resolve();
+                }
+              }).catch(function (error) {
+                console.error(error);
+                resolve();
+              });
+          } else {
+            resolve();
+          }
+
+        }).catch(function (error) {
+          console.error(error);
+          resolve();
+        });
+      });
+    }
+  }
 
 }).catch(function () {
   console.error('Unable to get Token Information, Is the token address correct in config.json?');
   process.exit(1);
 })
-
-
-
-
-
-let user = {
-  pendingWithdrawUsers: [],
-  hasPendingWithdrawl: function (userId) {
-    return this.pendingWithdrawUsers.indexOf(userId) !== -1
-  },
-  lockWithdrawl: function (userId) {
-    this.pendingWithdrawUsers.push(userId);
-  },
-  unlockWithdrawl: function (userId) {
-    let index = this.pendingWithdrawUsers.indexOf(userId);
-    if (index > -1) {
-      this.pendingWithdrawUsers.splice(index, 1);
-    }
-  },
-  depositFunds: function (transaction) {
-    let updatedBalance;
-  
-    // check we didn't already process this id
-    database.txIdRecorded(transaction.txId).then(function (result) {
-      if (!result) {
-        database.getUserIdByDepositAddress(transaction.outputAddress)
-          .then(function (userId) {
-            if (userId) {
-              // update balance of user                                        
-              console.info("Found payment of " + transaction.amount + ", adding to: " + userId);
-              database.getBalanceFromUserId(userId)
-                .then(function (balance) {
-                  console.info("User " + userId + " existing balance " + balance);
-                  return token.addToBalance(balance, transaction.amount);
-                }).then(function (newBalance) {
-                  console.info("Settings new balance " + newBalance + " for " + userId);
-                  updatedBalance = newBalance;
-                  return database.setBalanceForUserId(userId, newBalance);
-                }).then(function () {
-                  database.logTransaction(transaction.txId, transaction.amount, '', userId, 'deposit');
-                  bot.sendMessage(userId, __('deposit_received', {
-                    txId: transaction.txId,
-                    amount: transaction.amount,
-                    updatedBalance: updatedBalance,
-                    tokenSymbol: tokenInfo.symbol
-                  }), {});
-  
-                }).catch(function (error) {
-                  console.error(error);
-                });
-            }
-          }).catch(function (error) {
-            console.error(error);
-          });
-      }
-    }).catch(function (error) {
-      console.error(error);
-    });
-  }
-}

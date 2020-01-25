@@ -18,9 +18,9 @@ var database = {
         });
     },
 
-    logTransaction: function (txId, amount, fromUser, toUser, type) {
-        let timestamp = new Date().getTime();
+    logTransaction: function (txId, amount, fromUser, toUser, type) {        
         return new Promise(function (resolve, reject) {
+            let timestamp = new Date().getTime();
             dbPromise.then(function (db) {
                 db.run("INSERT INTO trans_log (tx_id, amount, timestamp, from_user, to_user, type) VALUES ($txId, $amount, $timestamp, $fromUser, $toUser, $type)", {
                     $txId: txId,
@@ -29,8 +29,8 @@ var database = {
                     $fromUser: fromUser,
                     $toUser: toUser,
                     $type: type
-                }).then(function () {
-                    resolve(this.lastID);                    
+                }).then(function (statement) {
+                    resolve(statement .lastID);                    
                 }).catch(error => reject(error));
             }).catch(err => console.log('DB Promise error', err))         
         });
@@ -151,8 +151,8 @@ var database = {
                 db.run("INSERT INTO balances (balance, user_id) VALUES ($balance, $userId)", {
                     $balance: balance,
                     $userId: userId
-                }).then(function () {
-                    resolve(this.lastID);                    
+                }).then(function (statement) {
+                    resolve(statement .lastID);                    
                 }).catch(error => reject(error));
             }).catch(err => console.log('DB Promise error', err))  
         });

@@ -94,11 +94,11 @@ var token = {
 
                         if (balances.slpTokenBalances[config.token_address] !== undefined) {
                             // get WIF                                                
-                                // get WIF                                                
                             // get WIF                                                
-                                // get WIF                                                
                             // get WIF                                                
-                                // get WIF                                                
+                            // get WIF                                                
+                            // get WIF                                                
+                            // get WIF                                                
                             // get WIF                                                
                             token.getWifForAddress(address.id, address.deposit_addr).then(function (WIF) {
                                 balances.slpTokenUtxos[config.token_address].forEach(txo => txo.wif = WIF);
@@ -202,31 +202,33 @@ var token = {
             {
                 "v": 3,
                 "q": {
-                    "find": { "slp.detail.tokenIdHex": config.token_address }
+                    "find": {
+                        "slp.detail.tokenIdHex": config.token_address
+                    }
                 }
             },
             (message) => {
                 let obj = JSON.parse(message);
 
-                console.log(obj);
-
                 if (obj.type === "mempool") {
                     obj.data.forEach(data => {
-                        console.log(data.out);
                         if (data && data.slp) {
-                            // is this my token
-                            if (data.slp.detail.tokenIdHex === config.token_address) {
-                                //console.log(data);
-                                // console.log(data.slp.detail.outputs);
 
-                                for (const output of data.slp.detail.outputs) {
-                                    __callback({
-                                        outputAddress: output.address,
-                                        amount: output.amount,
-                                        txId: data.tx.h
-                                    });
-                                };
-                            }
+                            let validTxts = [];
+                            for (const output of data.slp.detail.outputs) {
+                                validTxts.push({
+                                    outputAddress: output.address,
+                                    amount: output.amount,
+                                    txId: data.tx.h
+                                });
+                            };
+
+                            (async () => {
+                                await asyncForEach(validTxts, async (txt) => {
+                                    await __callback(txt);
+                                });
+                            })();
+
                         }
                     });
                 }
@@ -234,59 +236,69 @@ var token = {
         )
     },
 
-    syncTransactions: function (blockHeight, __callback) {               
-        let lastBlock = blockHeight;
-        let currentBlock = 0;
+    syncTransactions: function (blockHeight, __callback) {
 
-        console.log('syncTransactions Called, starting at block: ', blockHeight);
+        return new Promise(function (resolve, reject) {
 
-        (async () => {
-            let res = await SLP.SLPDB.get({
-            v: 3,
-            q: {
-                db: ["c", "u"], // confirmed (blockchain) and unconfirmed (mempool)
-                find: { 
-                    "slp.detail.tokenIdHex": config.token_address,
-                    "slp.valid": true,
-                    "blk.t": { "$gte": lastBlock}
-                },
-                sort: { "blk.t": 1 }        
-            },
-            })  
+            let lastBlock = parseInt(blockHeight);
+            let currentBlock = 0;
 
-            res.c.forEach(data => {
-                for (const output of data.slp.detail.outputs) {
-                    __callback({
-                        outputAddress: output.address,
-                        amount: output.amount,
-                        txId: data.tx.h
+            console.log('syncTransactions Called, starting at block: ', blockHeight);
+
+            (async () => {
+                let res = await SLP.SLPDB.get({
+                    v: 3,
+                    q: {
+                        db: ["c", "u"], // confirmed (blockchain) and unconfirmed (mempool)
+                        find: {
+                            "slp.detail.tokenIdHex": config.token_address,
+                            "slp.valid": true,
+                            "blk.i": { "$gte": lastBlock }
+                        },
+                        sort: { "blk.t": 1 }
+                    },
+                })
+
+                console.log('Total Confirmed (blockchain):', res.c.length);
+                console.log('Total Unconfirmed (mempool):', res.u.length);
+
+                let validTxts = [];
+                res.c.forEach(data => {
+                    for (const output of data.slp.detail.outputs) {
+                        validTxts.push({
+                            outputAddress: output.address,
+                            amount: output.amount,
+                            txId: data.tx.h
+                        });
+                        if (data.blk.t > currentBlock) {
+                            currentBlock = data.blk.i;
+                        }
+                    }
+                });
+                res.u.forEach(data => {
+                    for (const output of data.slp.detail.outputs) {
+                        validTxts.push({
+                            outputAddress: output.address,
+                            amount: output.amount,
+                            txId: data.tx.h
+                        });
+                        if (data.blk.t > currentBlock) {
+                            currentBlock = data.blk.i;
+                        }
+                    }
+                });
+
+                (async () => {
+                    await asyncForEach(validTxts, async (txt) => {
+                        await __callback(txt);
+                        
                     });
-                };
-                if (data.blk.t > currentBlock) {
-                    currentBlock = data.blk.t;
-                }
-            });
-
-            res.c.forEach(data => {
-                for (const output of data.slp.detail.outputs) {
-                    __callback({
-                        outputAddress: output.address,
-                        amount: output.amount,
-                        txId: data.tx.h
-                    });
-                };
-                if (data.blk.t > currentBlock) {
-                    currentBlock = data.blk.t;
-                }
-            });
-            
-            console.log('Last block: ', currentBlock);
-            console.log('Total Confirmed (blockchain):', res.c.length);    
-            console.log('Total Unconfirmed (mempool):', res.u.length);    
-            
-        })();
+                    console.log('Last Checked block Index:', currentBlock);
+                    resolve(currentBlock);
+                })();
+            })();
+        });
     }
-
 
 };
 
