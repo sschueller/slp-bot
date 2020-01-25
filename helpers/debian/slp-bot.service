@@ -12,6 +12,7 @@ Description=SLP Bot
 After=network.target
 StartLimitIntervalSec=10
 [Service]
+WorkingDirectory=/path/to
 Type=simple
 Restart=always
 RestartSec=1
