@@ -138,25 +138,28 @@ token.getTokenInfo().then(function (tokenInfo) {
               }).then(function (newDepositAddress) {
                 address = newDepositAddress;
                 return database.setDepositAddressForUserId(msg.from.id, newDepositAddress);
+              }).catch(function (err) {
+                console.error('error inserting balance', err);
               });
           } else if (!depositAddress) {
-            database.getDbIndexFromUserId(msg.from.id).then(function (dbIndex) {
-              token.generateDepositAddress(dbIndex)
-                .then(function (newDepositAddress) {
-                  address = newDepositAddress;
-                  return database.setDepositAddressForUserId(msg.from.id, newDepositAddress);
-                });
-            })
+            return database.getDbIndexFromUserId(msg.from.id)
+              .then(function (dbIndex) {
+                return token.generateDepositAddress(dbIndex)
+              }).then(function (newDepositAddress) {
+                address = newDepositAddress;
+                return database.setDepositAddressForUserId(msg.from.id, newDepositAddress);
+              }).catch(function (err) {
+                console.error('error getDbIndexFromUserId', err);
+              });
           } else {
             address = depositAddress;
           }
         }).then(function () {
           bot.sendMessage(msg.chat.id, __('deposit_info'), {});
           bot.sendMessage(msg.chat.id, address, {});
+        }).catch(function (err) {
+          console.error('error getting deposit address', err);
         });
-      //        .catch(function (err) {
-      //         console.error('error generating deposit address', err);
-      //       });
     }
   });
 
