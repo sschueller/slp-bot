@@ -17,7 +17,7 @@
     "nodemailer": "^6.4.2",
     "shelljs": "^0.8.3",
     "slp-sdk": "^4.15.0",
-    "sqlite": "^3.0.3",
+    "sqlite": "^4.0.1",
     "utf-8-validate": "^5.0.2"
   }
 }
